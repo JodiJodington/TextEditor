@@ -1,0 +1,9 @@
+[package]
+name = "TextEditor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = "0.34.2"
+egui = "0.34.2"
+rfd = "0.17.2"
