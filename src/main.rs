@@ -5,7 +5,7 @@ use eframe::egui;
 use egui::{FontDefinitions,FontData,FontFamily};
 use rfd::FileDialog;
 use std::fs;
-use text_editor::pathbuf_manipulation::{pathbuf_to_filename,pathbuf_to_directory};
+use text_editor::pathbuf_manipulation::pathbuf_to_label;
 use text_editor::fileio::{save_as_file,save_file};
 
 fn main() -> eframe::Result{
@@ -108,7 +108,7 @@ impl eframe::App for TextEditor {
 				};
 			});
 			if self.open_file {
-				let mut file_label = pathbuf_to_filename(&self.path) + " (" + &pathbuf_to_directory(&self.path) + ")";
+				let mut file_label = pathbuf_to_label(&self.path);
 				if self.saved {
 					file_label += " - Saved"
 				}
