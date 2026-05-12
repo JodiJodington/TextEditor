@@ -95,15 +95,13 @@ impl eframe::App for TextEditor {
 					}
 				}
 				if ui.add(egui::Button::new("Close").corner_radius(2)).clicked(){
-					if self.saved {
-						self.path = PathBuf::default();
-						self.contents = "".to_string();
-						self.open_file = false;
-						self.saved = false;
+					if !self.saved {
+						let _ = save_file(&self.path, &self.contents);
 					}
-					else {
-						
-					}
+					self.path = PathBuf::default();
+					self.contents = "".to_string();
+					self.open_file = false;
+					self.saved = false;
 				};
 				if ui.add(egui::Button::new("Print").corner_radius(2)).clicked(){
 					println!("{}", self.contents);
