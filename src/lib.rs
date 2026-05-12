@@ -10,41 +10,25 @@ pub mod fileio {
 	use std::path::PathBuf;
 	use rfd::FileDialog;
 	use std::fs;
-	pub fn save_file (save_path: &PathBuf, contents: &String) -> Result<PathBuf, &'static str>{
-		let write_result = fs::write(save_path, contents);
-		if let Err(_e) = write_result {
-			println!("entered error path");
-			let file = FileDialog::new()
-				.add_filter("text", &["txt", "md"])
-				.set_directory("./")
-				.set_file_name("new_file.txt")
-				.save_file();
-			let new_write_result = fs::write(file.clone().unwrap_or_default(), contents);
-			if let Err(new_e) = new_write_result {
-				println!("Error with writing occured. Please debug. {new_e}");
-				Err("Error with writing occured. Please debug.")
-			}
-			else {
-				Ok(file.unwrap_or_default())
-			}
-		}
-		else {
-			Ok(save_path.clone())
-		}
+	pub fn save_file (save_path: &PathBuf, contents: &str) -> Result<PathBuf, &'static str>{
+		fs::write(save_path, contents).map_or_else(|e| {
+            println!("entered error path: {e}");
+            save_as_file(contents)
+        }, |_| Ok(save_path.to_path_buf()))
 	}
-	pub fn save_as_file (contents: &String) -> Result<PathBuf, &'static str>{
+	pub fn save_as_file (contents: &str) -> Result<PathBuf, &'static str>{
 		let file = FileDialog::new()
 			.add_filter("text", &["txt", "md"])
 			.set_directory("./")
 			.set_file_name("new_file.txt")
-			.save_file();
-		let new_write_result = fs::write(file.clone().unwrap_or_default(), contents);
-		if let Err(new_e) = new_write_result {
-			println!("Error with writing occured. Please debug. {new_e}");
-			Err("Error with writing occured. Please debug.")
-		}
-		else {
-			Ok(file.unwrap_or_default())
-		}
+			.save_file()
+            .ok_or("failed to save file with dialogue")?;
+        fs::write(&file, contents) .map_or_else(
+            |e| {
+                println!("Error with writing occured. Please debug. {e}");
+                Err("Error with writing occured. Please debug.")
+            },
+            |_| Ok(file)
+        )
 	}
 }
