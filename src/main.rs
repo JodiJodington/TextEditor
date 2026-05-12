@@ -6,6 +6,7 @@ use egui::{FontDefinitions,FontData,FontFamily};
 use rfd::FileDialog;
 use std::fs;
 use text_editor::pathbuf_manipulation::{pathbuf_to_filename,pathbuf_to_directory};
+use text_editor::fileio::{save_as_file,save_file};
 
 fn main() -> eframe::Result{
 	let native_options = eframe::NativeOptions::default();
@@ -74,39 +75,23 @@ impl eframe::App for TextEditor {
 					}
 				}
 				if ui.add(egui::Button::new("Save").corner_radius(2)).clicked(){
-					let write_result = fs::write(self.path.clone(), self.contents.clone());
-					if let Err(_e) = write_result {
-						let file = FileDialog::new()
-							.add_filter("text", &["txt", "md"])
-							.set_directory("./")
-							.set_file_name("new_file.txt")
-							.save_file();
-						let new_write_result = fs::write(file.clone().unwrap_or_default(), self.contents.clone());
-						if let Err(new_e) = new_write_result {
-							println!("Error with writing occured. Please debug. {new_e}");
-						}
-						else {
-							self.saved = true;
-							self.path = file.unwrap_or_default();
-						}
-					}
-					else {
+					if let Ok(saved_path_buf) = save_file(&self.path, &self.contents){
+						self.path = saved_path_buf.clone();
 						self.saved = true;
+						self.open_file = true;
+					} 
+					else {
+						self.saved = false;
 					}
 				}
 				if ui.add(egui::Button::new("Save As").corner_radius(2)).clicked(){
-					let file = FileDialog::new()
-						.add_filter("text", &["txt", "md"])
-						.set_directory(&self.path)
-						.set_file_name(pathbuf_to_filename(&self.path))
-						.save_file();
-					let new_write_result = fs::write(file.clone().unwrap_or_default(), self.contents.clone());
-					if let Err(new_e) = new_write_result {
-						println!("Error with writing occured. Please debug. {new_e}");
+					if let Ok(saved_path_buf) = save_as_file(&self.contents){
+						self.path = saved_path_buf.clone();
+						self.saved = true;
+						self.open_file = true;
 					}
 					else {
-						self.saved = true;
-						self.path = file.unwrap_or_default();
+						self.saved = false;
 					}
 				}
 				if ui.add(egui::Button::new("Close").corner_radius(2)).clicked(){
@@ -132,10 +117,13 @@ impl eframe::App for TextEditor {
 				ui.label(file_label);
 			}
 			egui::ScrollArea::vertical().show(ui, |ui| {
-				ui.add_sized(
+				let status = ui.add_sized(
 					ui.available_size(),
 					egui::TextEdit::multiline(&mut self.contents)
 						.lock_focus(true));
+				if status.changed(){
+					self.saved = false;
+				}
 			});
 		});
 	}
