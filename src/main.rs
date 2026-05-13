@@ -5,8 +5,8 @@ use eframe::egui;
 use egui::{FontDefinitions,FontData,FontFamily};
 use rfd::FileDialog;
 use std::fs;
-use text_editor::pathbuf_manipulation::pathbuf_to_label;
-use text_editor::fileio::{save_as_file,save_file};
+use text_editor::pathbuf_manipulation::{pathbuf_to_label,pathbuf_to_side_label};
+use text_editor::fileio::{save_as_file,save_file,read_dir};
 
 fn main() -> eframe::Result{
 	let native_options = eframe::NativeOptions::default();
@@ -59,7 +59,20 @@ impl eframe::App for TextEditor {
 	fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
 		egui::Panel::left("left_panel").show_inside(ui, |ui| {
 			ui.heading("Text Editor");
-			ui.label("When I get this working, it should show the list of files that are in the directory");
+			if self.open_file {
+				let mut label_contents = String::new();
+				let mut containing_dir = self.path.clone();
+				containing_dir.pop();
+				let dir = read_dir(&containing_dir);
+				for read_path_buf in dir {
+					label_contents += &pathbuf_to_side_label(&read_path_buf);
+					label_contents += &String::from("\n");
+				}
+				ui.label(label_contents);
+			}
+			else {
+				ui.label("No file is currently open.");
+			}
 		});
 		egui::CentralPanel::default().show_inside(ui, |ui|{
 			ui.horizontal(|ui|{

@@ -1,8 +1,25 @@
 pub mod pathbuf_manipulation {
-	use std::path::PathBuf;
+	use std::cmp::Ordering;
+    use std::path::PathBuf;
     use std::path::Path;
     pub fn pathbuf_to_label(p: &PathBuf) -> String {
         format!("{} ({})", p.file_name().unwrap().display(), p.parent().unwrap_or_else(|| Path::new(".")).display())
+    }
+    pub fn pathbuf_to_side_label (p: &PathBuf) -> String {
+        let filename = p.file_name().unwrap().display().to_string();
+        if !p.is_dir() {
+            format!("{}", filename)
+        } else {
+            format!("> {}", filename)
+        }
+    }
+    pub fn pathbuf_compare (a: &PathBuf, b: &PathBuf) -> Ordering {
+        match (a.is_dir(), b.is_dir()){
+            (true, true) => a.file_name().unwrap().display().to_string().cmp(&b.file_name().unwrap().display().to_string()),
+            (true, false) => Ordering::Less,
+            (false, true) => Ordering::Greater,
+            (false, false) => a.file_name().unwrap().display().to_string().cmp(&b.file_name().unwrap().display().to_string()),
+        }
     }
 }
 
@@ -10,6 +27,7 @@ pub mod fileio {
 	use std::path::PathBuf;
 	use rfd::FileDialog;
 	use std::fs;
+    use crate::pathbuf_manipulation::pathbuf_compare;
 	pub fn save_file (save_path: &PathBuf, contents: &str) -> Result<PathBuf, &'static str>{
 		fs::write(save_path, contents).map_or_else(|e| {
             println!("entered error path: {e}");
@@ -31,4 +49,14 @@ pub mod fileio {
             |_| Ok(file)
         )
 	}
+
+    pub fn read_dir(dir_path: &PathBuf) -> Vec<PathBuf> {
+        let mut vec_pathbuf = Vec::new();
+        let paths = fs::read_dir(dir_path).unwrap();
+        for path in paths {
+            vec_pathbuf.push(path.unwrap().path());
+        }
+        vec_pathbuf.sort_by(|a,b| pathbuf_compare(a, b));
+        vec_pathbuf
+    }
 }
