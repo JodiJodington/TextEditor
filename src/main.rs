@@ -28,12 +28,8 @@ pub struct TextEditor {
 
 impl TextEditor {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_global_style.
-        // Restore app state using cc.storage (requires the "persistence" feature).
-        // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
-        // for e.g. egui::PaintCallback.
 
-        // Font management
+        // Pulling font from memory. 
         let mut fonts = FontDefinitions::default();
 
         fonts.font_data.insert(
@@ -44,7 +40,7 @@ impl TextEditor {
             ),
         );
 
-        // Put my font first (highest priority):
+        // Inserting font into egui's vector. 
         let option_fonts_vect = fonts.families.get_mut(&FontFamily::Proportional);
 
         match option_fonts_vect {
