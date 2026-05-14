@@ -28,12 +28,8 @@ pub struct TextEditor {
 
 impl TextEditor {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_global_style.
-        // Restore app state using cc.storage (requires the "persistence" feature).
-        // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
-        // for e.g. egui::PaintCallback.
 
-        // Font management
+        // Pulling font from memory. 
         let mut fonts = FontDefinitions::default();
 
         fonts.font_data.insert(
@@ -44,7 +40,7 @@ impl TextEditor {
             ),
         );
 
-        // Put my font first (highest priority):
+        // Inserting font into egui's vector. 
         let option_fonts_vect = fonts.families.get_mut(&FontFamily::Proportional);
 
         match option_fonts_vect {
@@ -58,6 +54,7 @@ impl TextEditor {
         Self::default()
     }
 
+    // Recursive function to render out folders once passed the UI object. 
     fn render_dir(&mut self, ui: &mut egui::Ui, dir: &PathBuf, deepness: usize) {
         let dir = read_dir(dir);
         for read_path_buf in dir {
@@ -89,6 +86,7 @@ impl TextEditor {
 
 impl eframe::App for TextEditor {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        //Renders the left side panel for file navigation. 
         egui::Panel::left("left_panel").show_inside(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading("Text Editor");
@@ -101,6 +99,8 @@ impl eframe::App for TextEditor {
                 }
             })
         });
+
+        //
         ui.set_cursor_icon(egui::CursorIcon::Default);
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.horizontal(|ui| {
