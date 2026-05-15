@@ -1,7 +1,7 @@
-#![windows_subsystem = "windows"]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use eframe::egui;
-use egui::{FontData, FontDefinitions, FontFamily, Label, Sense};
+use egui::{FontData, FontDefinitions, FontFamily, KeyboardShortcut, Label, Modifiers, Sense};
 use rfd::FileDialog;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -17,15 +17,59 @@ fn main() -> eframe::Result {
     )
 }
 
+#[derive(Debug)]
+pub struct Settings {
+    save_shortcut: KeyboardShortcut,
+    save_as_shortcut: KeyboardShortcut,
+    new_shortcut: KeyboardShortcut,
+    open_shortcut: KeyboardShortcut,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            save_shortcut: KeyboardShortcut {
+                modifiers: Modifiers {
+                    command: true,
+                    ..Default::default()
+                },
+                logical_key: egui::Key::S,
+            },
+            save_as_shortcut: KeyboardShortcut {
+                modifiers: Modifiers {
+                    command: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                logical_key: egui::Key::S,
+            },
+            new_shortcut: KeyboardShortcut {
+                modifiers: Modifiers {
+                    command: true,
+                    ..Default::default()
+                },
+                logical_key: egui::Key::N,
+            },
+            open_shortcut: KeyboardShortcut {
+                modifiers: Modifiers {
+                    command: true,
+                    ..Default::default()
+                },
+                logical_key: egui::Key::O,
+            },
+        }
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct TextEditor {
-    dir: PathBuf,
-    path: PathBuf,
-    contents: String,
-    saved: bool,
-    open_file: bool,
-    open_folders: Vec<PathBuf>,
-    zoom: u32,
+    dir: PathBuf,               //directory that the text editor is currently open into
+    path: PathBuf,              //path of the file that the text editor is currently editing
+    contents: String,           //string that represents the contents of the text file
+    saved: bool,                //status on if the file is saved
+    open_file: bool,            //status on if a file is open
+    open_folders: Vec<PathBuf>, //vector of all paths that are open. These can be directories OR paths to files. This is generally managed by the render_dir function below
+    settings: Settings, //structure to access all settings that should persist beyond one particular workspace or open file.
 }
 
 impl TextEditor {
@@ -55,15 +99,14 @@ impl TextEditor {
         Self::default()
     }
 
-    //Clears all data in the structure to defaults.  
-    fn reset(&mut self) {
+    //Clears all data in the structure to defaults.
+    fn reset_workspace(&mut self) {
         self.dir = PathBuf::new();
         self.path = PathBuf::new();
         self.contents = String::from("");
         self.saved = false;
         self.open_file = false;
         self.open_folders = Vec::new();
-        self.zoom = 0;
     }
 
     // Recursive function to render out folders once passed the UI object.
@@ -107,12 +150,12 @@ impl eframe::App for TextEditor {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         //Renders the left side panel for file navigation.
         egui::Panel::left("left_panel").show_inside(ui, |ui| {
+            ui.take_available_space();
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading("Text Editor");
                 if self.dir.is_dir() {
                     self.render_dir(ui, &self.dir.clone(), 0);
-                }
-                else if self.open_file {
+                } else if self.open_file {
                     let option_containing_dir = self.path.parent();
                     if let Some(containing_dir) = option_containing_dir {
                         self.render_dir(ui, &PathBuf::from(containing_dir), 0);
@@ -123,19 +166,20 @@ impl eframe::App for TextEditor {
             })
         });
 
-        //
+        //renders out the central panel
         ui.set_cursor_icon(egui::CursorIcon::Default);
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 if ui.add(egui::Button::new("New").corner_radius(2)).clicked() {
                     if self.open_file {
                         if let Ok(_) = save_file(&self.path, &self.contents) {
-                            self.reset();
+                            self.reset_workspace();
                         }
                     }
                     if let Ok(saved_path_buf) = save_as_file(&self.contents) {
                         self.path = saved_path_buf;
-                        self.dir = PathBuf::from(self.path.parent().unwrap_or_else(|| &Path::new("")));
+                        self.dir =
+                            PathBuf::from(self.path.parent().unwrap_or_else(|| &Path::new("")));
                         self.saved = true;
                         self.open_file = true;
                     } else {
@@ -150,16 +194,18 @@ impl eframe::App for TextEditor {
                         .pick_file();
                     if let Some(selected_path_buf) = file {
                         self.path = selected_path_buf.clone();
-                        self.dir = PathBuf::from(self.path.parent().unwrap_or_else(|| &Path::new("")));
+                        self.dir =
+                            PathBuf::from(self.path.parent().unwrap_or_else(|| &Path::new("")));
                         self.contents = fs::read_to_string(selected_path_buf)
                             .unwrap_or_else(|_| String::from(""));
                         self.open_file = true;
                     }
                 }
-                if ui.add(egui::Button::new("Open Folder").corner_radius(2)).clicked() {
-                    let folder = FileDialog::new()
-                        .set_directory("./")
-                        .pick_folder();
+                if ui
+                    .add(egui::Button::new("Open Folder").corner_radius(2))
+                    .clicked()
+                {
+                    let folder = FileDialog::new().set_directory("./").pick_folder();
                     if let Some(selected_folder_buf) = folder {
                         self.dir = PathBuf::from(selected_folder_buf);
                     }
@@ -192,7 +238,7 @@ impl eframe::App for TextEditor {
                     if !self.saved {
                         let _ = save_file(&self.path, &self.contents);
                     }
-                    self.reset();
+                    self.reset_workspace();
                 };
                 if ui
                     .add(egui::Button::new("Print").corner_radius(2))
@@ -222,5 +268,54 @@ impl eframe::App for TextEditor {
                 }
             });
         });
+
+        let ctx = ui.ctx();
+        if ctx.input_mut(|i| i.consume_shortcut(&self.settings.save_as_shortcut)) {
+            if let Ok(saved_path_buf) = save_as_file(&self.contents) {
+                self.path = saved_path_buf.clone();
+                self.saved = true;
+                self.open_file = true;
+            } else {
+                self.saved = false;
+            }
+        }
+        if ctx.input_mut(|i| i.consume_shortcut(&self.settings.save_shortcut)) {
+            if let Ok(saved_path_buf) = save_file(&self.path, &self.contents) {
+                self.path = saved_path_buf.clone();
+                self.saved = true;
+                self.open_file = true;
+            } else {
+                self.saved = false;
+            }
+        }
+        if ctx.input_mut(|i| i.consume_shortcut(&self.settings.new_shortcut)) {
+            if self.open_file {
+                if let Ok(_) = save_file(&self.path, &self.contents) {
+                    self.reset_workspace();
+                }
+            }
+            if let Ok(saved_path_buf) = save_as_file(&self.contents) {
+                self.path = saved_path_buf;
+                self.dir = PathBuf::from(self.path.parent().unwrap_or_else(|| &Path::new("")));
+                self.saved = true;
+                self.open_file = true;
+            } else {
+                self.saved = false;
+            }
+        }
+        if ctx.input_mut(|i| i.consume_shortcut(&self.settings.open_shortcut)) {
+            let file = FileDialog::new()
+                .add_filter("text", &["txt", "md"])
+                .add_filter("All Files", &["*"])
+                .set_directory("./")
+                .pick_file();
+            if let Some(selected_path_buf) = file {
+                self.path = selected_path_buf.clone();
+                self.dir = PathBuf::from(self.path.parent().unwrap_or_else(|| &Path::new("")));
+                self.contents =
+                    fs::read_to_string(selected_path_buf).unwrap_or_else(|_| String::from(""));
+                self.open_file = true;
+            }
+        }
     }
 }

@@ -11,7 +11,11 @@ pub mod pathbuf_manipulation {
         )
     }
     pub fn pathbuf_to_side_label(p: &PathBuf, open: bool) -> String {
-        let filename = p.file_name().unwrap_or_else(|| &OsStr::new("")).display().to_string();
+        let filename = p
+            .file_name()
+            .unwrap_or_else(|| &OsStr::new(""))
+            .display()
+            .to_string();
 
         if !p.is_dir() {
             format!("{}", filename)
@@ -29,7 +33,12 @@ pub mod pathbuf_manipulation {
                 .unwrap_or_else(|| &OsStr::new(""))
                 .display()
                 .to_string()
-                .cmp(&b.file_name().unwrap_or_else(|| &OsStr::new("")).display().to_string()),
+                .cmp(
+                    &b.file_name()
+                        .unwrap_or_else(|| &OsStr::new(""))
+                        .display()
+                        .to_string(),
+                ),
             (true, false) => Ordering::Less,
             (false, true) => Ordering::Greater,
             (false, false) => a
@@ -37,7 +46,12 @@ pub mod pathbuf_manipulation {
                 .unwrap_or_else(|| &OsStr::new(""))
                 .display()
                 .to_string()
-                .cmp(&b.file_name().unwrap_or_else(|| &OsStr::new("")).display().to_string()),
+                .cmp(
+                    &b.file_name()
+                        .unwrap_or_else(|| &OsStr::new(""))
+                        .display()
+                        .to_string(),
+                ),
         }
     }
 }
@@ -75,7 +89,7 @@ pub mod fileio {
 
     pub fn read_dir(dir_path: &PathBuf) -> Vec<PathBuf> {
         let mut vec_pathbuf = Vec::new();
-        if let Ok(paths) = fs::read_dir(dir_path){
+        if let Ok(paths) = fs::read_dir(dir_path) {
             for path in paths {
                 if let Ok(path) = path {
                     vec_pathbuf.push(path.path());
