@@ -4,7 +4,7 @@ A super simple super light weight text editor and an opportunity for me to learn
 
 Goals. 
  - [x] basic functional text editor
- - [ ] file exploring capability
+ - [x] file exploring capability
  - [ ] spell check
  - [ ] git integration
 

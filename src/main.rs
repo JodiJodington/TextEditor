@@ -1,10 +1,10 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![windows_subsystem = "windows"]
 
 use eframe::egui;
 use egui::{FontData, FontDefinitions, FontFamily, Label, Sense};
 use rfd::FileDialog;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use text_editor::fileio::{read_dir, save_as_file, save_file};
 use text_editor::pathbuf_manipulation::{pathbuf_to_label, pathbuf_to_side_label};
 
@@ -19,17 +19,18 @@ fn main() -> eframe::Result {
 
 #[derive(Default, Debug)]
 pub struct TextEditor {
+    dir: PathBuf,
     path: PathBuf,
     contents: String,
     saved: bool,
     open_file: bool,
     open_folders: Vec<PathBuf>,
+    zoom: u32,
 }
 
 impl TextEditor {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-
-        // Pulling font from memory. 
+        // Pulling font from memory.
         let mut fonts = FontDefinitions::default();
 
         fonts.font_data.insert(
@@ -40,7 +41,7 @@ impl TextEditor {
             ),
         );
 
-        // Inserting font into egui's vector. 
+        // Inserting font into egui's vector.
         let option_fonts_vect = fonts.families.get_mut(&FontFamily::Proportional);
 
         match option_fonts_vect {
@@ -54,18 +55,36 @@ impl TextEditor {
         Self::default()
     }
 
-    // Recursive function to render out folders once passed the UI object. 
+    //Clears all data in the structure to defaults.  
+    fn reset(&mut self) {
+        self.dir = PathBuf::new();
+        self.path = PathBuf::new();
+        self.contents = String::from("");
+        self.saved = false;
+        self.open_file = false;
+        self.open_folders = Vec::new();
+        self.zoom = 0;
+    }
+
+    // Recursive function to render out folders once passed the UI object.
     fn render_dir(&mut self, ui: &mut egui::Ui, dir: &PathBuf, deepness: usize) {
-        let dir = read_dir(dir);
-        for read_path_buf in dir {
+        let dir_vector = read_dir(dir);
+        for read_path_buf in dir_vector {
             if self.open_folders.contains(&read_path_buf) {
                 let prefix_label = "| ".repeat(deepness);
-                ui.add(egui::Label::new(prefix_label + &pathbuf_to_side_label(&read_path_buf)));
-                self.render_dir(ui, &read_path_buf, deepness + 1);
+                let dir_item_label = ui.add(
+                    egui::Label::new(prefix_label + &pathbuf_to_side_label(&read_path_buf, true))
+                        .sense(Sense::click()),
+                );
+                if dir_item_label.clicked() {
+                    self.open_folders.retain(|x| !x.starts_with(&read_path_buf));
+                } else {
+                    self.render_dir(ui, &read_path_buf, deepness + 1);
+                }
             } else {
                 let prefix_label = "| ".repeat(deepness);
                 let dir_item_label = ui.add(
-                    Label::new(prefix_label + &pathbuf_to_side_label(&read_path_buf))
+                    Label::new(prefix_label + &pathbuf_to_side_label(&read_path_buf, false))
                         .sense(Sense::click()),
                 );
                 if dir_item_label.clicked() {
@@ -86,16 +105,20 @@ impl TextEditor {
 
 impl eframe::App for TextEditor {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        //Renders the left side panel for file navigation. 
+        //Renders the left side panel for file navigation.
         egui::Panel::left("left_panel").show_inside(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading("Text Editor");
-                if self.open_file {
-                    let mut containing_dir = self.path.clone();
-                    containing_dir.pop();
-                    self.render_dir(ui, &containing_dir, 0);
+                if self.dir.is_dir() {
+                    self.render_dir(ui, &self.dir.clone(), 0);
+                }
+                else if self.open_file {
+                    let option_containing_dir = self.path.parent();
+                    if let Some(containing_dir) = option_containing_dir {
+                        self.render_dir(ui, &PathBuf::from(containing_dir), 0);
+                    }
                 } else {
-                    ui.label("No file is currently open.");
+                    ui.label("Nothing is currently open.");
                 }
             })
         });
@@ -107,14 +130,12 @@ impl eframe::App for TextEditor {
                 if ui.add(egui::Button::new("New").corner_radius(2)).clicked() {
                     if self.open_file {
                         if let Ok(_) = save_file(&self.path, &self.contents) {
-                            self.path = PathBuf::default();
-                            self.open_folders = Vec::default();
-                            self.contents = "".to_string();
-                            self.open_file = false;
+                            self.reset();
                         }
                     }
                     if let Ok(saved_path_buf) = save_as_file(&self.contents) {
-                        self.path = saved_path_buf.clone();
+                        self.path = saved_path_buf;
+                        self.dir = PathBuf::from(self.path.parent().unwrap_or_else(|| &Path::new("")));
                         self.saved = true;
                         self.open_file = true;
                     } else {
@@ -124,13 +145,23 @@ impl eframe::App for TextEditor {
                 if ui.add(egui::Button::new("Open").corner_radius(2)).clicked() {
                     let file = FileDialog::new()
                         .add_filter("text", &["txt", "md"])
+                        .add_filter("All Files", &["*"])
                         .set_directory("./")
                         .pick_file();
                     if let Some(selected_path_buf) = file {
                         self.path = selected_path_buf.clone();
+                        self.dir = PathBuf::from(self.path.parent().unwrap_or_else(|| &Path::new("")));
                         self.contents = fs::read_to_string(selected_path_buf)
                             .unwrap_or_else(|_| String::from(""));
                         self.open_file = true;
+                    }
+                }
+                if ui.add(egui::Button::new("Open Folder").corner_radius(2)).clicked() {
+                    let folder = FileDialog::new()
+                        .set_directory("./")
+                        .pick_folder();
+                    if let Some(selected_folder_buf) = folder {
+                        self.dir = PathBuf::from(selected_folder_buf);
                     }
                 }
                 if ui.add(egui::Button::new("Save").corner_radius(2)).clicked() {
@@ -161,11 +192,7 @@ impl eframe::App for TextEditor {
                     if !self.saved {
                         let _ = save_file(&self.path, &self.contents);
                     }
-                    self.path = PathBuf::default();
-                    self.contents = "".to_string();
-                    self.open_folders = Vec::default();
-                    self.open_file = false;
-                    self.saved = false;
+                    self.reset();
                 };
                 if ui
                     .add(egui::Button::new("Print").corner_radius(2))

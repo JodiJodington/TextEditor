@@ -1,5 +1,6 @@
 pub mod pathbuf_manipulation {
     use std::cmp::Ordering;
+    use std::ffi::OsStr;
     use std::path::Path;
     use std::path::PathBuf;
     pub fn pathbuf_to_label(p: &PathBuf) -> String {
@@ -9,11 +10,15 @@ pub mod pathbuf_manipulation {
             p.parent().unwrap_or_else(|| Path::new(".")).display()
         )
     }
-    pub fn pathbuf_to_side_label(p: &PathBuf) -> String {
-        let filename = p.file_name().unwrap().display().to_string();
+    pub fn pathbuf_to_side_label(p: &PathBuf, open: bool) -> String {
+        let filename = p.file_name().unwrap_or_else(|| &OsStr::new("")).display().to_string();
+
         if !p.is_dir() {
             format!("{}", filename)
         } else {
+            if open {
+                return format!("↘ {}", filename);
+            }
             format!("> {}", filename)
         }
     }
@@ -21,18 +26,18 @@ pub mod pathbuf_manipulation {
         match (a.is_dir(), b.is_dir()) {
             (true, true) => a
                 .file_name()
-                .unwrap()
+                .unwrap_or_else(|| &OsStr::new(""))
                 .display()
                 .to_string()
-                .cmp(&b.file_name().unwrap().display().to_string()),
+                .cmp(&b.file_name().unwrap_or_else(|| &OsStr::new("")).display().to_string()),
             (true, false) => Ordering::Less,
             (false, true) => Ordering::Greater,
             (false, false) => a
                 .file_name()
-                .unwrap()
+                .unwrap_or_else(|| &OsStr::new(""))
                 .display()
                 .to_string()
-                .cmp(&b.file_name().unwrap().display().to_string()),
+                .cmp(&b.file_name().unwrap_or_else(|| &OsStr::new("")).display().to_string()),
         }
     }
 }
@@ -53,7 +58,8 @@ pub mod fileio {
     }
     pub fn save_as_file(contents: &str) -> Result<PathBuf, &'static str> {
         let file = FileDialog::new()
-            .add_filter("text", &["txt", "md"])
+            .add_filter("text", &["txt"])
+            .add_filter("markdown", &["md"])
             .set_directory("./")
             .set_file_name("new_file.txt")
             .save_file()
@@ -69,11 +75,14 @@ pub mod fileio {
 
     pub fn read_dir(dir_path: &PathBuf) -> Vec<PathBuf> {
         let mut vec_pathbuf = Vec::new();
-        let paths = fs::read_dir(dir_path).unwrap();
-        for path in paths {
-            vec_pathbuf.push(path.unwrap().path());
+        if let Ok(paths) = fs::read_dir(dir_path){
+            for path in paths {
+                if let Ok(path) = path {
+                    vec_pathbuf.push(path.path());
+                }
+            }
+            vec_pathbuf.sort_by(|a, b| pathbuf_compare(a, b));
         }
-        vec_pathbuf.sort_by(|a, b| pathbuf_compare(a, b));
         vec_pathbuf
     }
 }
